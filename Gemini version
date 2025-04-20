@@ -1,0 +1,251 @@
+Excellent! Let's forge ahead with the WizardPro Agent Paradigm.
+
+Here is the step-by-step guide to get the initial agent running:
+
+Phase A: Agent Script Generation & Basic Setup
+
+Step A.1: Generate Initial Agent Code (wizardpro_agent.py)
+
+    Action: I will now provide the initial Python code for the agent. This first version will include the basic structure to read JSON instructions from you, parse them, and execute a very simple "ECHO" action for testing.
+    Goal: Create the wizardpro_agent.py file on your server.
+
+Instructions for You:
+
+    Make sure you are in the root directory of your wizardpro project (~/wizardpro).
+    Ensure your virtual environment is active ((venv)).
+    Copy the entire Bash script block below.
+    Paste it into your terminal and press Enter.
+
+Bash
+
+#!/bin/bash
+echo "[INFO] Step A.1: Generating initial orchestrator/wizardpro_agent.py..."
+# Ensure we are in the project root before changing directory
+if [ ! -d "orchestrator" ]; then echo "[ERROR] Cannot find orchestrator dir."; exit 1; fi
+
+# Create the agent file within the orchestrator directory
+AGENT_FILE="orchestrator/wizardpro_agent.py"
+echo "[INFO] Writing agent code to $AGENT_FILE..."
+
+cat << 'EOF' > "$AGENT_FILE"
+# orchestrator/wizardpro_agent.py
+import json
+import sys
+import logging
+import base64
+import subprocess
+import shlex
+import time # Added for sleep in main loop error case
+from pathlib import Path
+
+# --- Basic Logging Setup ---
+# Output format includes timestamp, level, and message
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [AGENT] [%(levelname)-7s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger("WizardProAgent")
+
+# --- Action Handler Functions ---
+
+def handle_echo(action_data: dict) -> tuple[bool, str]:
+    """Handles the ECHO action: prints the message."""
+    message = action_data.get("message", "No message provided for ECHO.")
+    # Print to stdout which user will see directly, also log it
+    print(f"[AGENT ECHO] {message}")
+    logger.info(f"ECHO Action executed: {message}")
+    return True, f"Echo successful."
+
+# --- Placeholder Handlers for Future Actions ---
+
+def handle_create_or_replace_file(action_data: dict) -> tuple[bool, str]:
+    logger.warning("ACTION_NOT_IMPLEMENTED: CREATE_OR_REPLACE_FILE")
+    return False, "CREATE_OR_REPLACE_FILE action not implemented yet."
+
+def handle_append_to_file(action_data: dict) -> tuple[bool, str]:
+    logger.warning("ACTION_NOT_IMPLEMENTED: APPEND_TO_FILE")
+    return False, "APPEND_TO_FILE action not implemented yet."
+
+def handle_run_script(action_data: dict) -> tuple[bool, str]:
+    logger.warning("ACTION_NOT_IMPLEMENTED: RUN_SCRIPT")
+    return False, "RUN_SCRIPT action not implemented yet."
+
+def handle_run_formatter(action_data: dict) -> tuple[bool, str]:
+    logger.warning("ACTION_NOT_IMPLEMENTED: RUN_FORMATTER")
+    return False, "RUN_FORMATTER action not implemented yet."
+
+def handle_git_add(action_data: dict) -> tuple[bool, str]:
+    logger.warning("ACTION_NOT_IMPLEMENTED: GIT_ADD")
+    return False, "GIT_ADD action not implemented yet."
+
+def handle_git_commit(action_data: dict) -> tuple[bool, str]:
+    logger.warning("ACTION_NOT_IMPLEMENTED: GIT_COMMIT")
+    return False, "GIT_COMMIT action not implemented yet."
+
+def handle_call_local_llm(action_data: dict) -> tuple[bool, str]:
+    logger.warning("ACTION_NOT_IMPLEMENTED: CALL_LOCAL_LLM")
+    return False, "CALL_LOCAL_LLM action not implemented yet."
+
+def handle_request_signoff(action_data: dict) -> tuple[bool, str]:
+    logger.warning("ACTION_NOT_IMPLEMENTED: REQUEST_SIGNOFF")
+    # For now, automatically approve
+    logger.info("Sign-off requested, automatically approving (placeholder).")
+    return True, "Sign-off automatically approved (placeholder)."
+
+
+# --- Action Dispatch Table ---
+# Maps action type string to the handler function
+ACTION_HANDLERS = {
+    "ECHO": handle_echo,
+    "CREATE_OR_REPLACE_FILE": handle_create_or_replace_file,
+    "APPEND_TO_FILE": handle_append_to_file,
+    "RUN_SCRIPT": handle_run_script,
+    "RUN_FORMATTER": handle_run_formatter,
+    "GIT_ADD": handle_git_add,
+    "GIT_COMMIT": handle_git_commit,
+    "CALL_LOCAL_LLM": handle_call_local_llm,
+    "REQUEST_SIGNOFF": handle_request_signoff,
+    # Add more actions here as we implement them
+}
+
+# --- Core Agent Logic ---
+
+def process_instruction(instruction_json: str, project_root: Path):
+    """Parses and executes a single JSON instruction block."""
+    try:
+        instruction = json.loads(instruction_json)
+        step_id = instruction.get('step_id', 'Unknown Step')
+        logger.info(f"Received instruction for step_id: {step_id}")
+        logger.debug(f"Full instruction: {instruction}")
+
+        description = instruction.get("description", "No description.")
+        logger.info(f"Step Description: {description}")
+
+        actions = instruction.get("actions", [])
+        if not isinstance(actions, list):
+            logger.error("Invalid instruction format: 'actions' key must contain a list.")
+            return False
+
+        for i, action in enumerate(actions):
+            action_type = action.get("type")
+            action_num = i + 1
+            logger.info(f"--- Executing Action {action_num}/{len(actions)} (Type: {action_type}) ---")
+
+            handler = ACTION_HANDLERS.get(action_type)
+            if handler:
+                # Pass the action data and project root to the handler
+                # Ensure paths in action_data are relative to project_root
+                # Handlers will need to resolve paths using project_root.joinpath(...)
+                success, message = handler(action) # Modify handlers later to accept project_root
+                if not success:
+                    logger.error(f"Action {action_num} '{action_type}' FAILED: {message}")
+                    logger.error(f"Halting execution for step_id: {step_id}")
+                    return False # Stop processing actions on first failure
+                else:
+                    logger.info(f"Action {action_num} '{action_type}' SUCCEEDED: {message}")
+            else:
+                logger.error(f"Unknown action type encountered: '{action_type}'")
+                logger.error(f"Halting execution for step_id: {step_id}")
+                return False # Stop on unknown action
+
+        logger.info(f"--- Successfully completed all actions for step_id: {step_id} ---")
+        return True
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to decode JSON instruction: {e}")
+        logger.error(f"Received raw input snippet: {instruction_json[:500]}...")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error processing instruction block: {e}", exc_info=True)
+        return False
+
+def main():
+    """Main loop to read JSON instructions from stdin."""
+    logger.info("--- WizardPro Agent Initializing ---")
+    # Assume agent is started from the project root directory
+    project_root = Path.cwd().resolve()
+    logger.info(f"Agent operating with Project Root: {project_root}")
+
+    # Check if it looks like the wizardpro directory
+    if not (project_root / 'orchestrator').is_dir() or not (project_root / 'scripts').is_dir():
+        logger.warning("Current directory doesn't look like WizardPro project root. File paths might be incorrect.")
+
+    logger.info("Waiting for JSON instructions on standard input...")
+    logger.info("Paste a single JSON block, press Enter, then send EOF (Ctrl+D Linux/macOS, Ctrl+Z Enter Windows).")
+
+    instruction_buffer = ""
+    while True:
+        logger.info("=" * 20 + " Ready for next JSON instruction (Submit with EOF) " + "=" * 20)
+        try:
+            # Read potentially multi-line JSON until EOF
+            json_input = sys.stdin.read()
+
+            if not json_input:
+                logger.info("EOF detected without input or empty input stream closed. Exiting agent.")
+                break # Exit if Ctrl+D pressed immediately or stream closes
+
+            if not json_input.strip():
+                logger.warning("Received empty/whitespace input. Waiting for next instruction.")
+                continue
+
+            logger.info(f"Processing received instruction ({len(json_input)} bytes)...")
+            success = process_instruction(json_input, project_root)
+            if success:
+                 logger.info("Instruction block processed successfully.")
+            else:
+                 logger.error("Instruction block processing failed. See logs above.")
+                 # Continue waiting for next instruction after failure
+
+        except KeyboardInterrupt:
+            logger.info("KeyboardInterrupt received. Exiting agent.")
+            break
+        except Exception as e:
+            logger.error(f"Critical error in agent main loop: {e}", exc_info=True)
+            logger.error("Attempting to continue...")
+            time.sleep(2) # Avoid tight loop on unexpected error
+
+
+if __name__ == "__main__":
+    main()
+
+EOF
+
+# Check exit status
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Failed writing orchestrator/wizardpro_agent.py."
+    exit 1
+fi
+echo "[SUCCESS] Initial orchestrator/wizardpro_agent.py created."
+echo "----------------------------------------"
+
+# --- Optional: Format the new file ---
+echo "[INFO] Running 'black' formatter on agent script..."
+# Activate venv just for this command (needed for black)
+source orchestrator/venv/bin/activate || { echo "[WARN] Failed to activate venv for black formatting."; }
+black orchestrator/wizardpro_agent.py
+deactivate || echo "[WARN] Deactivate failed."
+echo "[INFO] Formatting complete."
+echo "----------------------------------------"
+
+Explanation:
+
+    File Creation: This script creates orchestrator/wizardpro_agent.py.
+    Basic Structure:
+        Imports necessary modules (json, sys, logging, subprocess, pathlib, base64, time).
+        Sets up basic logging.
+        Includes placeholder functions for the actions we'll need (handle_create_or_replace_file, handle_run_script, etc.). Only handle_echo is implemented initially.
+        Defines an ACTION_HANDLERS dictionary to map JSON action types to these functions.
+        Implements process_instruction to parse incoming JSON and dispatch actions to handlers.
+        Implements a main loop that reads JSON from standard input until EOF (Ctrl+D) is signaled, then calls process_instruction.
+    Formatting: It runs black on the newly created agent file for clean formatting.
+
+Next Steps (A.2 & A.3):
+
+    After this script runs successfully, you will have the agent file.
+    The next step is to run the agent. Open a dedicated terminal (or a tmux session) on your server, navigate to the ~/wizardpro directory, activate the venv (source orchestrator/venv/bin/activate), and run:
+    Bash
+
+python orchestrator/wizardpro_agent.py
+
+The agent should print its startup messages and wait for input. Leave this terminal running.
