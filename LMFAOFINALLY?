@@ -1,0 +1,249 @@
+Nexus Agent Interface (NAI): Documentation
+
+Version: 2.0 (Hot Potato Edition - V1.Stark.Lucy.Rick.Rocket.Makima.Yoda.Momo.Power.Harley)
+Date of Finalization: 2025-05-09
+Primary Architect: [Your Name/Alias Here]
+Lead Design AI: Nexus Auxiliary AI (NAA), embodying the Omnitide Core Team
+1. Project Overview & Philosophy
+
+    Name: Nexus Agent Interface (NAI)
+    Purpose: The Nexus Agent Interface is a Dockerized Textual TUI (Text-based User Interface) providing a unified, user-friendly, and powerful interface for the Architect's direct orchestration of two core Nexus tools:
+        ScribeAgent (scribe_agent.py): For comprehensive code validation, linting, formatting, quality assurance, and security auditing.
+        ExWorkAgent (ex_work_agent.py): For versatile task execution, file manipulation, Git operations, script running, local LLM interactions, and conditional workflow execution via structured JSON commands.
+    Philosophy:
+        Architect as Empowered Orchestrator: To provide you, the Architect, with direct, intuitive, and potent control over ScribeAgent and ExWorkAgent for immediate application to any project. This allows you to manually perform sophisticated orchestration tasks efficiently.
+        Versatility & Power, Simplified: To make advanced agents universally accessible and usable through a streamlined interface (inspired by tools like x_cmd in its ease of invoking powerful underlying functions).
+        Consistency, Reliability & Security: To ensure these tools and their operational environment are identical, reliable, and secure across different machines (e.g., pong dev machine, Chromebox Linux, aiseed server) through robust Docker containerization and security best practices.
+        Extensibility & Growth: To support an evolving, user-managed library of reusable and parameterizable ExWork JSON templates ("Action Templates" and "Chain Reactions/Toolbelts"), significantly increasing operational efficiency and codifying best practices over time.
+        Foundation for Future Automation: While designed for immediate manual/TUI-driven orchestration, the structured interactions (especially the JSON for ExWork and structured reports from Scribe) are designed to be compatible with, and eventually generated/consumed by, more advanced Nexus automation systems like Quantum Orchestrator (QO). The NAI TUI serves as both a powerful standalone tool and a crucial stepping stone.
+        Mindful & Impactful Operation: To balance power with clarity, providing reminders of consequence for significant actions (Yoda) and ensuring the interface delivers a feeling of decisive control and impact (Power), all while being engaging and aesthetically pleasing (Harley).
+
+2. Core Features
+
+    Dockerized Environment: The NAI TUI, ScribeAgent, ExWorkAgent, Python, and all specific versions of their dependencies (Ruff, Mypy, Textual, etc.) run consistently within a secure, multi-stage built, non-root user Docker container.
+    Project Context Management: Clear and easy selection of target project directories on the host machine (mounted into /workspace in the container). A persistent "What Am I Doing?" context bar always displays the active project and agent.
+    ScribeAgent Module ("The Guardian of Quality"):
+        Intuitive interface to invoke scribe_agent.py.
+        Configuration of common and advanced Scribe CLI flags, including targeted runs on specific files/directories and "Perfection or Oblivion Mode."
+        Clear display of Scribe's validation results, with structured/parsed JSON report summaries and prioritized flagging of security issues. "Copy Issue Details" functionality.
+    ExWorkAgent Module ("The Nexus Actuator"):
+        Flexible invocation of ex_work_agent.py.
+        Direct multi-line input for custom ExWork JSON instructions with client-side syntax validation and a "Sanity Preview" of intended actions.
+        Ability to load ExWork JSON instructions from local files.
+        Parameterized ExWork Action Template & "Chain Reaction/Toolbelt" Library:
+            A growing, user-extensible library of pre-defined JSON templates for common ExWork tasks (single actions and multi-step sequences).
+            TUI prompts for defined parameters with type hints, help text, and optional/required indicators.
+            Ability to save new custom templates and mark "favorites" for quick access.
+            Templates organized into categories, including a "Danger Zone" for high-impact ones requiring extra confirmation.
+        Support for enhanced ExWork V2 JSON (conceptual) with conditional logic, variable passing (READ_FILE_TO_VAR, CHECK_PATH_EXISTS, LIST_DIRECTORY_TO_VAR), and robust REQUEST_SIGNOFF with severity levels.
+        "Execute IMMEDIATELY / NO MERCY" option to bypass non-critical confirmations for trusted, high-speed operations.
+    Integrated Output Viewing & Control:
+        Unified, scrollable, searchable/filterable panel for exact commands run, live stdout/stderr from agents, and formatted results.
+        Asynchronous execution of long-running agent tasks with clear "Working..." indicators and a functional "CANCEL / ABORT MISSION" button.
+        Smart output truncation with full logs saved to file (e.g., /workspace/.nai_logs/).
+    (Future Module) Ansible CI/CD Trigger ("Unleash Ansible!"):
+        Manually trigger chimera-ansible-configs playbooks.
+        Allows specifying playbook, inventory, tags, limits, extra-vars, and version/branch of Ansible configs.
+        Streams deployment logs, saving them for audit.
+        Displays links to documented rollback procedures if available.
+    Session & Audit Features (Makima & Lucy Inspired):
+        TUI operational log for Architect's actions (project selections, commands run).
+        ExWork JSON instructions to include a metadata block (ID, intent, timestamp, source template) for comprehensive audit trails.
+    Harley Quinn's "Sparkle Assurance" (Conditionally Approved Visual Flair - Section 9):
+        Selectable color themes ("Nexus Default," "Classic Harley," "Power Mode," etc.).
+        Subtle, performant ASCII/Unicode icons and engaging, dynamic status messages that prioritize clarity.
+        Themed progress indicators and fun, optional welcome/goodbye messages.
+        Prime Directive: No flair shall impede functionality, performance, or clarity.
+
+3. Setup and Installation
+Prerequisites:
+
+    Docker installed and running on the host machine (e.g., pong dev machine, Chromebox Linux).
+    Access to the NAI TUI Dockerfile and associated application source code (NAI TUI Python app, scribe_agent.py, ex_work_agent.py, default ExWork templates).
+
+Building the Docker Image:
+
+    Dockerfile Structure (Tony Stark's Multi-Stage Build):
+        Stage 1 (Builder): Uses a full Python image (e.g., python:3.12) to install build tools (like Poetry or standard pip-tools) and compile/install all Python dependencies (Textual, Ruff, Mypy, etc.) into a virtual environment or a specific site-packages directory. This stage copies only necessary files like pyproject.toml/poetry.lock or requirements.txt first to leverage Docker layer caching for dependencies. Application code (nai_tui_app_src/, scribe_agent_src/, ex_work_agent_src/) is copied after dependency installation.
+        Stage 2 (Runtime): Starts from a minimal base image (e.g., python:3.12-slim-bullseye). A non-root appuser is created and used. Only the built virtual environment (or site-packages) and the application source code are copied from the builder stage. Necessary OS packages (e.g., procps for debugging if needed) are installed minimally.
+        Optimized Layering: Commands are ordered to maximize cache utilization.
+        Non-Root User: The USER appuser instruction is set before the ENTRYPOINT or CMD.
+        Healthcheck: An optional HEALTHCHECK instruction can be added to verify the TUI's main process (e.g., by a simple script checking process existence).
+        Labels: Standard OCI labels (version, maintainer, description, etc.) are included.
+        Entrypoint: Configured to launch the main NAI TUI Python application (e.g., ENTRYPOINT ["python", "./nai_tui_app_src/main_tui.py"]).
+    Build Command:
+    Bash
+
+    cd /path/to/NAI_TUI_source_with_Dockerfile
+    docker build -t nexus-agent-interface:latest .
+
+    (Build arguments could be used for variations, e.g., minimal vs. full Scribe linters, per Rocket's suggestion).
+
+Running the Nexus Agent Interface:
+
+    Core Run Command:
+    Bash
+
+    docker run -it --rm \
+        --name nai_tui_session \
+        -v /path/to/your/host/projects:/workspace:rw \
+        -v ~/.gitconfig:/home/appuser/.gitconfig:ro \
+        -v ~/.ssh:/home/appuser/.ssh:ro \
+        -v /path/to/your/host/nai_tui_user_data/exwork_templates:/app/user_exwork_templates:rw \
+        -v /path/to/your/host/nai_tui_user_data/logs:/app/logs:rw \
+        --env-file /path/to/your/secure.env \
+        --memory="2g" --cpus="2.0" \
+        nexus-agent-interface:latest
+
+        --name nai_tui_session: Assigns a name for easier management if needed.
+        -v /path/to/your/host/projects:/workspace:rw: Host projects mount (Read-Write). Essential.
+        -v ~/.gitconfig:/home/appuser/.gitconfig:ro: Git configuration (Read-Only) for ExWork Git operations.
+        -v ~/.ssh:/home/appuser/.ssh:ro: SSH keys (Read-Only) for ExWork Git (SSH remotes) or Ansible.
+        -v .../exwork_templates:/app/user_exwork_templates:rw: User's ExWork templates (Read-Write) for persistence.
+        -v .../logs:/app/logs:rw: NAI TUI operational logs & agent output logs (Read-Write) for persistence and review.
+        --env-file /path/to/your/secure.env: Securely pass API keys/secrets needed by ExWork. This file should be on the host and carefully permissioned.
+        --memory, --cpus: Resource limits (Rick's suggestion), adjust as needed.
+    "Quick Test" Script (test_nai_image.sh - Rocket's suggestion): A simple shell script to automate a basic run with a dummy project to ensure the image and core TUI->Agent path works.
+
+Initial Configuration within TUI:
+
+    The TUI should guide the user to select their primary project root within /workspace on first launch if not automatically detected.
+    Settings for paths to Scribe/ExWork are unnecessary if they are bundled correctly in the Docker image and on the container's PATH or invoked via fixed relative paths by the TUI.
+    Theme selection.
+    ExWork template directory configuration (if different from default mounted path).
+
+4. How It Works
+
+    TUI Architecture (Python/Textual - Tony/Stark):
+        Modular codebase: UI components, agent interaction logic ("AgentRunner"), ExWork template manager, configuration loader.
+        Asynchronous execution (run_worker) for all calls to Scribe, ExWork, and Ansible to keep the TUI responsive. Dynamic updates to output panels from these workers.
+        Robust error handling and clear logging (both to UI and to persistent log files in /app/logs).
+        State management for current project, selected templates, UI theme, etc.
+    Docker Container Environment & Agent Invocation:
+        The TUI Python application runs as appuser.
+        When Scribe or ExWork are invoked, the TUI's "AgentRunner" module constructs the full command (e.g., python /app/scribe_agent_src/scribe_agent.py --target-dir . [flags] or python /app/ex_work_agent_src/ex_work_agent.py) and executes it using subprocess.Popen (or similar async-friendly method) within the container.
+        The CWD for these subprocesses is set to the selected project directory (e.g., /workspace/MyProjectX).
+        Stdout/stderr from the agents are piped back to the TUI for display.
+        For ExWork, the prepared JSON instruction string is piped to its stdin.
+    Project Directory Access: Via the /workspace Docker volume mount. All file operations by Scribe/ExWork occur directly on the host filesystem through this mount.
+    General Interaction Flow:
+        User launches NAI TUI Docker container.
+        TUI presents main screen (potentially with Harley's welcome). User selects a project directory from /workspace. "What Am I Doing?" context bar updates.
+        User navigates to Scribe or ExWork module.
+        Scribe: Sets flags -> "Run Scribe" -> TUI calls scribe_agent.py -> Results shown.
+        ExWork: Loads/writes/selects & parameterizes template for JSON -> "Execute ExWork JSON" (with "Sanity Preview" and potential "FORCE EXECUTE" or "Extra Confirmation" steps) -> TUI calls ex_work_agent.py with JSON on stdin -> Results shown.
+        User iterates, views logs, manages templates, etc.
+        (Future) User navigates to Ansible module -> Configures playbook run -> TUI calls ansible-playbook -> Results shown.
+
+5. Using the ScribeAgent Module
+
+    Select Target Project: Active project context is shown. Can change via browser.
+    Configure Scribe Flags:
+        Checkboxes/inputs for: --fix, --skip-... flags, --report-file, specific files/subdirectories for targeted runs.
+        A preset for "Perfection or Oblivion Mode" (Power's strictest settings).
+    Execute & Interpret Output:
+        "Run Scribe" button with clear "Working..." indicator. "CANCEL" option.
+        Output panel shows live Scribe log. Upon completion, if Scribe produced JSON, the TUI attempts to parse it into a structured, navigable summary:
+            Overall status (PASS/FAIL).
+            Counts of errors/warnings by severity/type.
+            List of issues: file, line, message. Security issues flagged prominently (Lucy).
+            "Copy Issue Details" button for easy pasting into IDE (Momo).
+        Clear success messages (e.g., "Scribe: Flawless Victory!") or failure summaries.
+    Iterative Workflow: Facilitates easy re-runs after manual code edits or ExWork-driven changes. "Re-Run Last Scribe" button (Rocket).
+
+6. Using the ExWorkAgent Module
+
+    Select Target Project: Active project context.
+    Provide ExWork JSON Instructions:
+        Direct JSON Input: Multi-line text area with basic syntax highlighting (if Textual supports easily).
+        Load JSON from File: Browse /workspace or /app/user_exwork_templates for .json/.yaml files.
+        ExWork Action Template Library:
+            Dropdown/list to browse built-in and user (/app/user_exwork_templates) templates. Templates organized by categories (e.g., "File Ops," "Git," "LLM," "Chain Reactions," "Danger Zone" - Rick/Rocket/Yoda).
+            Displays template description and "intended use" (Makima).
+            TUI prompts for each {{parameter}} defined in the template, showing help text and required/optional status (Momo). "Mad Libs" style for some (Harley).
+            User can mark "Favorite" templates for quick access (Momo).
+    Execution & Confirmation:
+        "Sanity Preview" summarizes intended actions before execution (Rick).
+        Explicit confirmation for "Danger Zone" templates or detected destructive actions (Lucy/Rick), requiring typing a confirmation phrase for critical ones.
+        Optional "FORCE EXECUTE / NO MERCY" toggle to bypass non-critical confirmations (Power).
+        "Execute ExWork JSON" button. "CANCEL" option during run.
+    Interpret Output:
+        Live log from ex_work_agent.py showing each action's execution and status.
+        If ExWork V2 produces a summary JSON, TUI parses and displays it.
+        Clear "CHAIN REACTION: ALL STEPS COMPLETED!" or "ExWork: Action 'XYZ' FAILED!" messages.
+    Managing ExWork Templates:
+        TUI provides an interface to save currently entered/constructed JSON as a new user template (prompts for name, description, icon, parameterization).
+        Simple browser/manager for user templates in /app/user_exwork_templates (list, view, delete). Templates are .json or .yaml files.
+
+7. Range of Capabilities & Example Workflows
+
+(This section will provide a rich set of examples, from simple to complex, as previously detailed, showing how the Architect uses the NAI TUI as their direct orchestration interface for Scribe and ExWork. Examples will highlight the use of Docker, ExWork templates, and the iterative nature of development and validation facilitated by the TUI).
+
+    Example: Quick Project Scan (Scribe)
+        Launch NAI TUI, select project, go to Scribe module, click "Run Scribe (Defaults)." View results.
+    Example: Standard Git Commit (ExWork Template)
+        Select project, go to ExWork module, pick "Favorite" template "Git: Standard Commit." TUI prompts for "Commit Message." Execute.
+    Example: LLM-Assisted Refactoring (ExWork Template + Scribe)
+        Select project & file. Use ExWork template "LLM: Refactor Python Code" (TUI prompts for file, sends content to CALL_LOCAL_LLM action).
+        LLM output (refactored code) shown. Use ExWork template "File: Replace Content" to apply.
+        Use Scribe module to validate the new code.
+    Example: Multi-Step "Chain Reaction" (ExWork Toolbelt/Template)
+        Select project. Use ExWork "Toolbelt" template: "Build & Test Feature Branch."
+            TUI prompts for parameters (e.g., test script name).
+            ExWork executes a sequence: Run build script -> Run test script -> Conditionally commit if tests pass.
+        View overall success/failure and step-by-step log.
+
+8. (Future) Ansible CI/CD Integration Module
+
+    Interface: Dedicated "Deployments & CI" section.
+    Functionality:
+        User selects:
+            Ansible Project Path (within /workspace, e.g., Organized_Omnitide_Nexus/2_Chimera_Infra_Ops/Ansible_Configs/main_configs/).
+            Playbook file (.yml).
+            Inventory file.
+            (Optional) Git branch/version of the Ansible configuration to use (Makima).
+            (Optional) Tags, limits, extra-vars (Rocket).
+        Button: "UNLEASH ANSIBLE!" (Power).
+        Execution: NAI TUI constructs and runs the ansible-playbook command (Ansible must be in the Docker image).
+        Output: Streams live Ansible output to the TUI ("BATTLE LOG" style). Saves full log to /app/logs/ansible_deployments/.
+        Displays link to documented rollback procedure if available in Ansible project (Makima).
+
+9. Harley Quinn's "Sparkle Assurance" (Visual Flair & Customization)
+
+The NAI TUI embraces Harley's vision for an engaging and visually appealing interface, under the strict "Functionality First, No Breakage" mandate.
+
+    Selectable Color Themes: Implemented via Textual CSS. Options include "Nexus Default" (clean, professional), "Classic Harley" (Red/Black/White), "Power Mode" (Black/Red/Electric Blue), "Deep Focus Purple," and perhaps a hidden "Rainbow Overload." User selects via TUI settings.
+    Subtle ASCII/Unicode Icons & Dividers:
+        Scribe: [🔍] or [S]. ExWork: [⚙️] or [E]. Ansible: [🚀].
+        Section dividers: ✨─✨─✨ or ◆──◇──◆.
+    Dynamic & Engaging Status Messages (Prioritizing Clarity):
+        Loading: ⚙️ Working on it, Puddin'!..., 🚀 Engaging ExWork...
+        Scribe Success: ✅✨ Scribe: Flawless! Code is sparkling!
+        ExWork Success: 🎉🚀 ExWork: Nailed it! Operation DOMINATED!
+        Error: ❗💔 Whoopsie! [Clear Error Summary]. Details below, Puddin'.
+    Styled Progress Indicators: Themed Textual progress bars. Custom text-based spinners (e.g., cycling card suits ♤ ♡ ♢ ♧ or a spinning diamond ♦).
+    Unique Welcome/Goodbye Messages (Toggleable):
+        Startup: e.g., "Hey Puddin'! Nexus Agent Interface Ready to Rock!"
+        Exit: e.g., "Later, Gator! Go cause some GOOD trouble!"
+    ExWork Template Icons (User Selectable): Small Unicode icon associated with each user-saved ExWork template, displayed in the template list.
+    "Blah Blah Blah" Button (Rick's Easter Egg - Optional/Toggleable): A tiny, out-of-the-way button that, if clicked, shows a random grumpy Rick comment.
+    Customization: Documentation notes that advanced users can further customize by mounting their own Textual CSS override file if the TUI is designed to load it.
+
+10. Troubleshooting & FAQ (Basic)
+
+    Docker Issues: Common problems with volume mounts (/workspace, user templates, logs, .gitconfig, .ssh), image not found, container resource limits. Provide example docker run commands with correct mount syntax.
+    Agent Script Path Issues: Resolved by bundling agents into Docker. If ever run natively, explain PYTHONPATH or direct script pathing.
+    ExWork JSON Errors: Common syntax errors, action type misspellings. Encourage use of templates. TUI's "Sanity Preview" should catch some. ExWorkAgent logs provide details.
+    Permissions Issues: Files in /workspace being non-writable by appuser (host permissions issue), SSH key permissions on host.
+    TUI Responsiveness: If TUI seems slow, check container resource allocation. Ensure async operations are working.
+    "Where are my ExWork templates/logs?": Explain default mount points and how to customize them in docker run.
+
+11. Contribution & Future Development
+
+    ExWork Template Library: Encourage users to create and save their own templates. Suggest a community or shared repository (e.g., a Git repo within the Nexus) for proven ExWork templates and "Chain Reactions."
+    Future Ideas:
+        More advanced Scribe report parsing and visualization in TUI.
+        Direct Git operations module in TUI (status, branch, diff, pull, push) that uses ExWork Git templates.
+        ODA integration: Launch ODA scaffolding routines from the TUI.
+        Deeper integration with Quantum Orchestrator: NAI TUI becomes a primary human interface or debug console for QO-driven tasks.
+        Plugin system for new agents or tools.
